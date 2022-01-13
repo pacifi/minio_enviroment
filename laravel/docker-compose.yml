@@ -1,0 +1,59 @@
+version: "3.7"
+
+services: 
+  nginx: 
+    image: nginx:stable-alpine 
+    container_name: nginx 
+    ports:
+      - 8000:80 # puerto de mi pc:puerto del servicio
+    volumes:
+      - ./src:/var/www/html # carpeta local/ vincula a carpeta de nginx
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf # archivo local / reflejado en archivo de la imagen
+    depends_on: # para correr este servicio debe estar corriendo php y mysql antes
+      - php
+      - mysql
+    networks: # la red que los conecta se llama laravel
+      - server_load_balancer
+    extra_hosts:
+      - "console.upeu.pe:172.22.0.4"
+      - "minio.upeu.pe:172.22.0.4"
+  
+  mysql: # 2do servici
+    image: mysql:5.7
+    container_name: mysql # nombre de referencia del servicio
+    restart: unless-stopped # si tiene algun problema, reinicialo
+    tty: true # aqui si le fallo joven xD, 👀 leo los comentarios
+    ports: 
+      - 33069:3306 
+    volumes:
+      - "./mysql:/var/lib/mysql"
+    environment: 
+      MYSQL_DATABASE: homestead
+      MYSQL_USER: homestead
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret.root 
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - server_load_balancer # red
+
+  php: # 3er servicio
+    build: # este se construira aqui mismo
+      context: . # ruta de referencia ./
+      dockerfile: Dockerfile # nombre del archivo de configuracion de la imagen 
+    container_name: php #
+    volumes: # carpeta de proyecto local : carpeta del container que da vida a los archivos PHP
+      - ./src:/var/www/html 
+    ports:
+      - 9000:80 
+    depends_on: # para correr este servicio debe estar corriendo php y mysql antes
+      - mysql
+    networks:
+      - server_load_balancer # red
+    extra_hosts:
+      - "console.upeu.pe:172.22.0.4"
+      - "minio.upeu.pe:172.22.0.4"
+
+networks:
+  server_load_balancer:
+    external: true
